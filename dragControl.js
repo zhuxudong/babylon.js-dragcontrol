@@ -1,4 +1,4 @@
-/*@author 祝旭东 https://github.com/zhuxudong/workdesk
+/*@author 祝旭东 https://github.com/zhuxudong/babylon.js-dragcontrol
  *@time 2017/3/12
  *BABYLON.JS V2.5
  *
