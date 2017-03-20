@@ -20,18 +20,18 @@ function DragControl(_scene, custom) {
     var _this = this;
     var _canvas = _scene.getEngine().getRenderingCanvas()
     var _default =
-    {
-        // edge: true,
-        drawOutline: true,
-        outlineColor: new BABYLON.Color3(0, 1, 1),
-        outlineWidth: 200,
-        //outlineColor: new BABYLON.Color4(1, 0, 0,1),
-        keyUp: "ArrowUp",
-        keyDown: "ArrowDown",
-        keyLeft: "ArrowLeft",
-        keyRight: "ArrowRight",
-        //centralRotation:true
-    }
+        {
+            // edge: true,
+            drawOutline: true,
+            outlineColor: new BABYLON.Color3(0, 1, 1),
+            outlineWidth: 200,
+            //outlineColor: new BABYLON.Color4(1, 0, 0,1),
+            keyUp: "ArrowUp",
+            keyDown: "ArrowDown",
+            keyLeft: "ArrowLeft",
+            keyRight: "ArrowRight",
+            //centralRotation:true
+        }
     _this.scene = _scene;
     _this.opration = Object.assign(_default, custom);
     _this.draggableMeshes = [];
@@ -42,14 +42,15 @@ function DragControl(_scene, custom) {
 
     function init() {
         if (_this.opration.drawOutline) {
-             //_this._draggingMesh.renderOutline = true;
-             //_this._draggingMesh.outlineWidth = _this.opration.outlineWidth;
-             //_this._draggingMesh.outlineColor = _this.opration.outlineColor;
+            //_this._draggingMesh.renderOutline = true;
+            //_this._draggingMesh.outlineWidth = _this.opration.outlineWidth;
+            //_this._draggingMesh.outlineColor = _this.opration.outlineColor;
             _this._draggingMesh.enableEdgesRendering()
             _this._draggingMesh.edgesColor = _this.opration.outlineColor;
             _this._draggingMesh.edgesWidth = _this.opration.outlineWidth;
         }
     }
+
     function dispose() {
         // _this._draggingMesh.renderOutline = false;
         _this._draggingMesh.disableEdgesRendering();
@@ -70,12 +71,13 @@ function DragControl(_scene, custom) {
             // _dragStatus = true;
         }
     }
+
     function onmousedown(e) {
         var pickInfo = _this.getPickInfo(_scene);
         if (pickInfo && e.button == 0) {
             _this.draggableMeshes.forEach(function (mesh) {
                 if (pickInfo.pickedMesh == mesh) {
-                    console.log("当前拾取目标:"+mesh.name)
+                    console.log("当前拾取目标:" + mesh.name)
                     _this._draggingMesh = mesh;
                     _pointerNow = pickInfo.pickedPoint.clone();
                     _this._dragStatus = true;
@@ -90,18 +92,18 @@ function DragControl(_scene, custom) {
 
     function onmousemove() {
         var _diff = 0;
-        var _pickInfo=null;
+        var _pickInfo = null;
         // collideTest()
-        if(_this._dragStatus){
-            if( (_pickInfo=_this.getPickInfo(_scene))&&_this._draggingMesh._initParent){
+        if (_this._dragStatus) {
+            if ((_pickInfo = _this.getPickInfo(_scene)) && _this._draggingMesh._initParent) {
                 //没有_pointerNow代表物体是拖拽进来的
-                if(!_pointerNow){
+                if (!_pointerNow) {
                     _this._draggingMesh.parent.computeWorldMatrix(true)
                     //防止先后顺序
                     _pointerNow = _this._draggingMesh.parent.position;
                     init();
                 }
-                else{
+                else {
                     _diff = _pickInfo.pickedPoint.subtract(_pointerNow);
                     _pointerNow = _pickInfo.pickedPoint.clone();
                     _this._draggingMesh.parent.unfreezeWorldMatrix()
@@ -133,23 +135,23 @@ function DragControl(_scene, custom) {
     function onkeydown(e) {
         if (_this._dragStatus) {
             switch (e.code) {
-                case _this.opration.keyUp:
-                {
-                    _this._draggingMesh.parent.translate(_scene.activeCamera.position.subtract(_pointerNow).normalize(), -10, BABYLON.Space.WORLD);
+                case _this.opration.keyUp: {
+                    _this._draggingMesh.parent.computeWorldMatrix(true);
+                    var direction=_scene.activeCamera.position.subtract(_pointerNow);
+                    _this._draggingMesh.parent.translate(direction.scale(0.1),-1, BABYLON.Space.WORLD);
                 }
                     break;
-                case _this.opration.keyDown:
-                {
-                    _this._draggingMesh.parent.translate(_scene.activeCamera.position.subtract(_pointerNow).normalize(), 10, BABYLON.Space.WORLD);
+                case _this.opration.keyDown: {
+                    _this._draggingMesh.parent.computeWorldMatrix(true);
+                    var direction=_scene.activeCamera.position.subtract(_pointerNow);
+                    _this._draggingMesh.parent.translate(direction.scale(0.1),1, BABYLON.Space.WORLD);
                 }
                     break;
-                case _this.opration.keyLeft:
-                {
+                case _this.opration.keyLeft: {
                     customRotate(Math.PI / 2);
                 }
                     break;
-                case _this.opration.keyRight:
-                {
+                case _this.opration.keyRight: {
                     customRotate(-Math.PI / 2);
                 }
                     break;
@@ -157,6 +159,7 @@ function DragControl(_scene, custom) {
         }
 
     }
+
     //keydown事件的target会随着点击物体的变化而变化，所以只能直接绑定在window上
     window.addEventListener("keydown", onkeydown);
     _canvas.addEventListener("mousedown", onmousedown);
@@ -187,21 +190,19 @@ DragControl.prototype = {
         var _this = this;
         this._init(meshes);
         (meshes instanceof HTMLCollection ? [].slice.call(meshes) : [].concat.call(meshes)).forEach(function (mesh) {
-            //不为dom的情况
-            if (!(mesh instanceof Element)) {
-                mesh.parent = new BABYLON.Mesh.CreateBox(mesh.name +"Parent", 20, scene);
-                //mesh.parent.isVisible=false;
-                mesh._initParent=true;
-                //如果有parentPosition，则时由进入场景事件触发的add，并不是手动触发
+            //不为dom且没有重复添加mesh
+            if (!(mesh instanceof Element)&&!mesh._initParent) {
+                mesh.parent = new BABYLON.Mesh(mesh.name + "Parent", scene);
+                mesh._initParent = true;
+                //如果有parentPosition，则是由进入场景事件触发的add，mesh._diff已经设置过
                 if (parentPosition) {
                     mesh.parent.position = parentPosition;
                 }
-                //防止重复add了同一个mesh
-                else if(!mesh._diff){
+                else  {
                     mesh.computeWorldMatrix(true);
-                    var _center=mesh.getBoundingInfo().boundingBox.center.clone();
+                    var _center = mesh.getBoundingInfo().boundingBox.center.clone();
                     var _diff = mesh.position.subtract(_center);
-                    mesh.parent.position =_center;
+                    mesh.parent.position = _center;
                     mesh._diff = _diff;
                 }
                 mesh.position = mesh._diff;
@@ -209,14 +210,17 @@ DragControl.prototype = {
             //第一次添加DOM且设置了可以拖拽的mesh
             else if ((mesh instanceof Element) && mesh.part && !mesh._active) {
                 var _dom = mesh;
-                //添加clone防止原mesh被dispose
-                if(!_dom.part){console.error("请设置dom.part=mesh!")};
-                var clone= _dom.part.clone(_dom.part.name,null,false);
-                clone._diff=_dom.part._diff;
-                _this.scene.removeMesh(clone);
-                _dom.part=clone;
                 //激活dom防止重复添加DOM
                 _dom._active = true;
+                //添加clone防止原mesh被dispose
+                if (!_dom.part) {
+                    console.error("请设置dom.part=mesh!")
+                }
+                var clone = _dom.part.clone(_dom.part.name, null, false);
+                //initParent
+                _this.add(clone);
+                _this.scene.removeMesh(clone);
+                _dom.part = clone;
                 _dom.addEventListener("mousedown", _onmousedown);
                 _this.scene.getEngine().getRenderingCanvas().addEventListener("mousemove", _onmousemove)
             }
@@ -224,22 +228,23 @@ DragControl.prototype = {
                 //每次按下时候克隆一份dom绑定的mesh并克隆子节点，不需要可以改为true
                 var clone = _dom.part.clone(_dom.part.name, null, false);
                 //将本地偏移量保存到拷贝的对象中
-                clone._diff=_dom.part._diff;
+                clone._diff = _dom.part._diff;
                 //先隐藏拷贝的对象
-                clone.isVisible=false;
+                clone.isVisible = false;
                 _this._draggingMesh = clone;
                 _this._dragStatus = true;
                 //第一次进入场景时才进行复制
-                _this._draggingMesh._copy=true;
+                _this._draggingMesh._copy = true;
             }
+
             function _onmousemove() {
-                if(_this._dragStatus&& _this._draggingMesh._copy){
+                if (_this._dragStatus && _this._draggingMesh._copy) {
                     var pickInfo = _this.getPickInfo(_this.scene);
                     if (pickInfo) {
-                        _this._draggingMesh._copy=false;
+                        _this._draggingMesh._copy = false;
                         _this.add(_this._draggingMesh, pickInfo.pickedPoint);
                         //拖入场景中再进行显示
-                        _this._draggingMesh.isVisible=true;
+                        _this._draggingMesh.isVisible = true;
                     }
                 }
             }
