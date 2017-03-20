@@ -21,7 +21,7 @@ function DragControl(_scene, custom) {
     var _canvas = _scene.getEngine().getRenderingCanvas()
     var _default =
     {
-        edge: true,
+        // edge: true,
         drawOutline: true,
         outlineColor: new BABYLON.Color3(0, 1, 1),
         outlineWidth: 200,
@@ -89,40 +89,24 @@ function DragControl(_scene, custom) {
     }
 
     function onmousemove() {
-        var _pickInfo = null;
         var _diff = 0;
+        var _pickInfo=null;
         // collideTest()
-        var pickInfos = _this.getPickInfos(_scene);
-        if (pickInfos) {
-            edge: for (var i = 0; i < pickInfos.length; i++) {
-                // 如果开启了延边检测，沿着最近的那个可拖拽对象移动
-                if (_this.opration.edge) {
-                    for (var j = 0; j < _this.draggableMeshes.length; j++) {
-                        if (pickInfos[i].pickedMesh == _this.draggableMeshes[j]) {
-                            _pickInfo = pickInfos[i];
-                            break edge;
-                        }
-                    }
+        if(_this._dragStatus){
+            if( (_pickInfo=_this.getPickInfo(_scene))&&_this._draggingMesh._initParent){
+                //没有_pointerNow代表物体是拖拽进来的
+                if(!_pointerNow){
+                    _this._draggingMesh.parent.computeWorldMatrix(true)
+                    //防止先后顺序
+                    _pointerNow = _this._draggingMesh.parent.position;
+                    init();
                 }
-                //如果不开启，则贴边移动
-                else if (pickInfos[i].pickedMesh == _this._draggingMesh) {
-                    _pickInfo = pickInfos[i];
-                    break edge;
+                else{
+                    _diff = _pickInfo.pickedPoint.subtract(_pointerNow);
+                    _pointerNow = _pickInfo.pickedPoint.clone();
+                    _this._draggingMesh.parent.unfreezeWorldMatrix()
+                    _this._draggingMesh.parent.translate(_diff, 1, BABYLON.Space.WORLD);
                 }
-            }
-        }
-        if (_pickInfo && _this._dragStatus) {
-            //没有_pointerNow代表物体是拖拽进来的
-            if (!_pointerNow) {
-                _this._draggingMesh.parent.computeWorldMatrix(true)
-                _pointerNow = _this._draggingMesh.parent.position;
-                init();
-            }
-            else {
-                _diff = _pickInfo.pickedPoint.subtract(_pointerNow);
-                _pointerNow = _pickInfo.pickedPoint.clone();
-                _this._draggingMesh.parent.unfreezeWorldMatrix()
-                _this._draggingMesh.parent.translate(_diff, 1, BABYLON.Space.WORLD);
             }
         }
     }
@@ -140,7 +124,7 @@ function DragControl(_scene, custom) {
             _rotationY = _this._draggingMesh.parent.rotation.y;
         }
         else {
-            console.error("需要调用controls.add(meshes)")
+            console.error("需要先调用controls.add(meshes)")
         }
         _this._draggingMesh.parent.rotation.y = step + _rotationY;
 
@@ -173,7 +157,6 @@ function DragControl(_scene, custom) {
         }
 
     }
-
     //keydown事件的target会随着点击物体的变化而变化，所以只能直接绑定在window上
     window.addEventListener("keydown", onkeydown);
     _canvas.addEventListener("mousedown", onmousedown);
@@ -204,45 +187,60 @@ DragControl.prototype = {
         var _this = this;
         this._init(meshes);
         (meshes instanceof HTMLCollection ? [].slice.call(meshes) : [].concat.call(meshes)).forEach(function (mesh) {
-            //第一次add mesh且不为DOM
-            if (!mesh._diff && !(mesh instanceof Element)) {
-                //设置本地轴偏差
-                mesh.computeWorldMatrix(true);
-                var _diff = mesh.getAbsolutePosition().subtract(mesh.getBoundingInfo().boundingBox.center.clone());
-                mesh._diff = _diff;
-                mesh.parent = new BABYLON.Mesh.CreateBox(mesh.name + "Parent", 5, scene);
+            //不为dom的情况
+            if (!(mesh instanceof Element)) {
+                mesh.parent = new BABYLON.Mesh.CreateBox(mesh.name +"Parent", 20, scene);
+                //mesh.parent.isVisible=false;
+                mesh._initParent=true;
                 //如果有parentPosition，则时由进入场景事件触发的add，并不是手动触发
                 if (parentPosition) {
                     mesh.parent.position = parentPosition;
-                } else {
-                    mesh.parent.position = mesh.getBoundingInfo().boundingBox.center.clone()
+                }
+                //防止重复add了同一个mesh
+                else if(!mesh._diff){
+                    mesh.computeWorldMatrix(true);
+                    var _center=mesh.getBoundingInfo().boundingBox.center.clone();
+                    var _diff = mesh.position.subtract(_center);
+                    mesh.parent.position =_center;
+                    mesh._diff = _diff;
                 }
                 mesh.position = mesh._diff;
             }
             //第一次添加DOM且设置了可以拖拽的mesh
             else if ((mesh instanceof Element) && mesh.part && !mesh._active) {
                 var _dom = mesh;
-                _dom.part = _dom.part.clone(_dom.part.name, null, false)
-                //激活dom
+                //添加clone防止原mesh被dispose
+                if(!_dom.part){console.error("请设置dom.part=mesh!")};
+                var clone= _dom.part.clone(_dom.part.name,null,false);
+                clone._diff=_dom.part._diff;
+                _this.scene.removeMesh(clone);
+                _dom.part=clone;
+                //激活dom防止重复添加DOM
                 _dom._active = true;
                 _dom.addEventListener("mousedown", _onmousedown);
                 _this.scene.getEngine().getRenderingCanvas().addEventListener("mousemove", _onmousemove)
             }
             function _onmousedown() {
-                //_this._enterScene代表着当前拖拽物体是否进入了拖拽场景中
-                _this._enterScene = false;
                 //每次按下时候克隆一份dom绑定的mesh并克隆子节点，不需要可以改为true
                 var clone = _dom.part.clone(_dom.part.name, null, false);
-                //设置为拖拽状态
+                //将本地偏移量保存到拷贝的对象中
+                clone._diff=_dom.part._diff;
+                //先隐藏拷贝的对象
+                clone.isVisible=false;
                 _this._draggingMesh = clone;
                 _this._dragStatus = true;
+                //第一次进入场景时才进行复制
+                _this._draggingMesh._copy=true;
             }
             function _onmousemove() {
-                var pickInfo = _this.getPickInfo(_this.scene);
-                if (pickInfo && _this._dragStatus && !_this._enterScene) {
-                    _this._enterScene = true;
-                    _this.add(_this._draggingMesh, pickInfo.pickedPoint);
-                    _this.scene.addMesh(_this._draggingMesh);
+                if(_this._dragStatus&& _this._draggingMesh._copy){
+                    var pickInfo = _this.getPickInfo(_this.scene);
+                    if (pickInfo) {
+                        _this._draggingMesh._copy=false;
+                        _this.add(_this._draggingMesh, pickInfo.pickedPoint);
+                        //拖入场景中再进行显示
+                        _this._draggingMesh.isVisible=true;
+                    }
                 }
             }
         })
